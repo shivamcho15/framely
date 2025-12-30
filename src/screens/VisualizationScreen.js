@@ -5,7 +5,7 @@ import HabitProgressChart from '../components/HabitProgressChart';
 import MilestoneBadge from '../components/MilestoneBadge';
 
 const VisualizationScreen = () => {
-    const { habits, getStreak } = useHabits();
+    const { habits, getStreak, getHabitCompletionDates } = useHabits();
 
     if (habits.length === 0) {
         return (
@@ -31,7 +31,10 @@ const VisualizationScreen = () => {
                         </View>
 
                         <MilestoneBadge streak={streak} />
-                        <HabitProgressChart habit={habit} />
+                        <HabitProgressChart
+                            habit={habit}
+                            completionDates={getHabitCompletionDates(habit.id)}
+                        />
                     </View>
                 );
             })}

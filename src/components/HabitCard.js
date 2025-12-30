@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useHabits } from '../context/HabitContext';
 import StreakBadge from './StreakBadge';
-import { getLocalDateString } from '../utils/streak';
+import { getLocalDateString } from '../utils/dates';
 
 const HabitCard = ({ habit }) => {
     const navigation = useNavigation();

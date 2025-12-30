@@ -1,9 +1,10 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { isScheduled, getLocalDateString } from '../utils/streak';
+import { isScheduledForDate } from '../utils/schedule';
+import { getLocalDateString } from '../utils/dates';
 
-const HabitProgressChart = ({ habit }) => {
-    const { completedDates, frequency } = habit;
+const HabitProgressChart = ({ habit, completionDates }) => {
+    const { frequency } = habit;
     const WEEKS_TO_SHOW = 4;
     const today = new Date();
 
@@ -34,8 +35,8 @@ const HabitProgressChart = ({ habit }) => {
 
     const renderCell = (date) => {
         const dateStr = getLocalDateString(date);
-        const completed = completedDates && completedDates.includes(dateStr);
-        const scheduled = isScheduled(date, frequency);
+        const completed = completionDates && completionDates.includes(dateStr);
+        const scheduled = isScheduledForDate(habit, dateStr);
 
         const todayStr = getLocalDateString(new Date());
         const isPast = dateStr < todayStr;

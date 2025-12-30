@@ -7,7 +7,7 @@ import CompletedDaysView from '../components/CompletedDaysView';
 import FrequencySelector from '../components/FrequencySelector';
 import RemindersInput from '../components/RemindersInput';
 import ColorPicker from '../components/ColorPicker';
-import { getLocalDateString } from '../utils/streak';
+import { getLocalDateString } from '../utils/dates';
 import { COLORS } from '../utils/colors';
 
 
