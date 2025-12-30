@@ -70,12 +70,10 @@ const AddHabitModal = ({ visible, onClose, onAdd }) => {
                         />
 
                         <View style={styles.section}>
-                            <Text style={styles.label}>Frequency</Text>
                             <FrequencySelector frequency={frequency} onChange={setFrequency} />
                         </View>
 
                         <View style={styles.section}>
-                            <Text style={styles.label}>Reminders</Text>
                             <RemindersInput reminders={reminders} onChange={setReminders} />
                         </View>
 

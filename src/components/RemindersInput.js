@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, TextInput, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, Platform } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
-const RemindersInput = ({ reminders, onChange, onChangeEnabled }) => {
+const RemindersInput = ({ reminders, onChange }) => {
     const enabled = reminders && reminders.length > 0;
     const [modalVisible, setModalVisible] = useState(false);
-    const [tempTime, setTempTime] = useState('');
+    const [tempDate, setTempDate] = useState(new Date());
 
     const handleToggle = () => {
         if (enabled) {
@@ -15,25 +16,32 @@ const RemindersInput = ({ reminders, onChange, onChangeEnabled }) => {
     };
 
     const addReminder = () => {
-        setTempTime('');
+        // Default to 9:00 AM or current time
+        const now = new Date();
+        now.setHours(9, 0, 0, 0);
+        setTempDate(now);
         setModalVisible(true);
     };
 
     const saveReminder = () => {
-        // Simple validation H:MM or HH:MM
-        const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
-        if (timeRegex.test(tempTime)) {
-            // Pad with leading zero if needed 9:00 -> 09:00
-            const formatted = tempTime.length === 4 ? `0${tempTime}` : tempTime;
-            onChange([...reminders, formatted].sort());
-            setModalVisible(false);
-        } else {
-            alert('Invalid format. Use HH:MM (24h)');
+        const hours = tempDate.getHours().toString().padStart(2, '0');
+        const minutes = tempDate.getMinutes().toString().padStart(2, '0');
+        const timeStr = `${hours}:${minutes}`;
+
+        // Avoid duplicates
+        if (!reminders.includes(timeStr)) {
+            onChange([...reminders, timeStr].sort());
         }
+        setModalVisible(false);
     };
 
     const removeReminder = (timeToRemove) => {
         onChange(reminders.filter(t => t !== timeToRemove));
+    };
+
+    const onDateChange = (event, selectedDate) => {
+        const currentDate = selectedDate || tempDate;
+        setTempDate(currentDate);
     };
 
     return (
@@ -66,16 +74,20 @@ const RemindersInput = ({ reminders, onChange, onChangeEnabled }) => {
             <Modal visible={modalVisible} transparent animationType="fade">
                 <View style={styles.modalBg}>
                     <View style={styles.modalCard}>
-                        <Text style={styles.modalTitle}>Enter Time</Text>
-                        <TextInput
-                            style={styles.modalInput}
-                            placeholder="HH:MM (e.g. 14:30)"
-                            value={tempTime}
-                            onChangeText={setTempTime}
-                            keyboardType="numbers-and-punctuation"
-                            autoFocus
-                            maxLength={5}
-                        />
+                        <Text style={styles.modalTitle}>Select Time</Text>
+
+                        <View style={styles.pickerContainer}>
+                            <DateTimePicker
+                                value={tempDate}
+                                mode="time"
+                                display="spinner" // iOS wheel style
+                                onChange={onDateChange}
+                                style={styles.picker}
+                                themeVariant="light"
+                                textColor="#000000"
+                            />
+                        </View>
+
                         <View style={styles.modalButtons}>
                             <TouchableOpacity style={styles.modalBtn} onPress={() => setModalVisible(false)}>
                                 <Text style={styles.btnText}>Cancel</Text>
@@ -159,27 +171,29 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff',
         padding: 24,
         borderRadius: 16,
-        width: '80%',
-        maxWidth: 300,
+        width: '85%',
+        alignItems: 'center',
     },
     modalTitle: {
         fontSize: 18,
         fontWeight: 'bold',
         marginBottom: 16,
-        textAlign: 'center',
     },
-    modalInput: {
-        borderWidth: 1,
-        borderColor: '#ddd',
-        borderRadius: 8,
-        padding: 12,
-        fontSize: 20,
-        textAlign: 'center',
+    pickerContainer: {
+        height: 150,
+        width: '100%',
+        justifyContent: 'center',
+        alignItems: 'center',
         marginBottom: 20,
+    },
+    picker: {
+        width: '100%',
+        height: 150,
     },
     modalButtons: {
         flexDirection: 'row',
         gap: 12,
+        width: '100%',
     },
     modalBtn: {
         flex: 1,

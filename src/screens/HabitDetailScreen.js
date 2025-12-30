@@ -125,10 +125,8 @@ const HabitDetailScreen = () => {
                             multiline
                         />
 
-                        <Text style={styles.label}>Frequency</Text>
                         <FrequencySelector frequency={frequency} onChange={setFrequency} />
 
-                        <Text style={styles.label}>Reminders</Text>
                         <RemindersInput reminders={reminders} onChange={setReminders} />
 
                         <Text style={styles.label}>Color</Text>

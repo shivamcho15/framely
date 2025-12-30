@@ -7,13 +7,14 @@ import { getLocalDateString } from '../utils/dates';
 
 const HabitCard = ({ habit }) => {
     const navigation = useNavigation();
-    const { toggleHabitCompletion, getStreak } = useHabits();
+    const { toggleHabitCompletion, getStreak, getHabitCompletionDates } = useHabits();
 
     // Safe check for completedDates
     // FIX: Use getLocalDateString to ensure we check against the correct LOCAL today
     const today = new Date();
     const todayStr = getLocalDateString(today);
-    const isCompletedToday = habit.completedDates && habit.completedDates.includes(todayStr);
+    const completedDates = getHabitCompletionDates(habit.id);
+    const isCompletedToday = completedDates && completedDates.includes(todayStr);
 
     const streak = getStreak(habit);
 
