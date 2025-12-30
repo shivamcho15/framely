@@ -1,67 +1,38 @@
-/**
- * Helper to get local date string YYYY-MM-DD
- */
-export const getLocalDateString = (date) => {
-    const d = new Date(date);
-    const offset = d.getTimezoneOffset() * 60000;
-    const localDate = new Date(d.getTime() - offset);
-    return localDate.toISOString().split('T')[0];
-};
+import { getLocalDateString, getTodayDateString } from './dates';
+import { isScheduledForDate } from './schedule';
 
 /**
- * Checks if a given date is a scheduled day for the habit based on frequency.
- * @param {Date} date - The date to check.
- * @param {Object} frequency - The habit frequency object { type, days }.
- * @returns {boolean} - True if scheduled, false otherwise.
+ * Calculates current streak based on normalized completions.
+ * @param {Object} habit 
+ * @param {Array<Object>} completions Array of { date: string, ... } objects
  */
-export const isScheduled = (date, frequency) => {
-    if (!frequency || frequency.type === 'everyday') return true;
-    if (frequency.type === 'specific') {
-        const dayOfWeek = date.getDay(); // 0 = Sun, 1 = Mon, etc.
-        return frequency.days && frequency.days.includes(dayOfWeek);
-    }
-    return true;
-};
+export const calculateStreak = (habit, completions) => {
+    // 1. Filter completions for this habit
+    // (Assuming caller passes filtered list, but safe to filter again if generic)
+    const habitCompletions = completions.filter(c => c.habitId === habit.id);
 
-/**
- * Calculates the current streak for a habit.
- * @param {Object} habit - The habit object.
- * @returns {number} - The current streak count.
- */
-export const calculateStreak = (habit) => {
-    const { completedDates, frequency } = habit;
+    if (habitCompletions.length === 0) return 0;
 
-    // Sort dates descending
-    const sortedDates = completedDates ? [...completedDates].sort((a, b) => new Date(b) - new Date(a)) : [];
+    // 2. Get unique sorted dates (descending)
+    const completedDates = [...new Set(habitCompletions.map(c => c.date))].sort().reverse();
 
-    const today = new Date();
-    const todayStr = getLocalDateString(today);
+    const todayStr = getTodayDateString();
 
-    // Special logic for 'everyOtherDay'
-    if (frequency && frequency.type === 'everyOtherDay') {
-        if (!completedDates || completedDates.length === 0) return 0;
+    // 3. Handle 'everyOtherDay' logic
+    if (habit.frequency.type === 'everyOtherDay') {
+        const latestDate = completedDates[0];
+        const daysSinceLast = dayDiff(todayStr, latestDate);
 
-        const latestDateStr = sortedDates[0];
+        // If > 2 days since last completion, streak is broken. (Max gap 1 day allowed)
+        if (daysSinceLast > 2) return 0;
 
-        const dayDiff = (d1, d2) => {
-            const t1 = new Date(d1).setHours(0, 0, 0, 0);
-            const t2 = new Date(d2).setHours(0, 0, 0, 0);
-            return Math.round((t1 - t2) / (1000 * 60 * 60 * 24));
-        };
-
-        const gapFromToday = dayDiff(todayStr, latestDateStr);
-        if (gapFromToday > 2) return 0; // Missed the window (> 1 day skip allowed, so max gap is 2 days? If Completed Mon, Due Wed. Today Thu. Gap 3. 0. Today Wed. Gap 2. OK.)
-
-        // Now count backwards
         let streak = 1;
-        for (let i = 0; i < sortedDates.length - 1; i++) {
-            const current = sortedDates[i];
-            const next = sortedDates[i + 1];
+        for (let i = 0; i < completedDates.length - 1; i++) {
+            const current = completedDates[i];
+            const next = completedDates[i + 1]; // older
             const gap = dayDiff(current, next);
 
-            // "Every other day" ideal gap is 2 (Mon -> Wed). 
-            // If gap is 1 (Mon -> Tue), that's extra credit, keep streak.
-            // If gap > 2, broken.
+            // Allow gap of 1 or 2 (1 = consecutive, 2 = skipped one day)
             if (gap <= 2) {
                 streak++;
             } else {
@@ -71,52 +42,75 @@ export const calculateStreak = (habit) => {
         return streak;
     }
 
-    // Standard Logic (Every Day & Specific Days)
+    // 4. Standard Logic
     let streak = 0;
-    // Start checking from Today
-    let currentCheck = new Date();
-    let completedSet = new Set(completedDates || []);
+    // We iterate backwards from Today or Yesterday.
+    // If Today is completed, streak starts at 1, check yesterday.
 
+    // Check if latest completion is relevant (today or yesterday) to keep streak alive
+    const latest = completedDates[0];
+    const diffToLatest = dayDiff(todayStr, latest);
+
+    // If last completion was more than 1 day ago...
+    if (diffToLatest > 1) {
+        // ...check if the days IN BETWEEN were scheduled. 
+        // If we missed a scheduled day, streak is 0. 
+        // If all missed days were unscheduled (off-days), streak might still be alive?
+        // Actually, simpler: Walk back day by day from Today.
+    }
+
+    let currentCheckDate = new Date(); // Start Today
     let daysChecked = 0;
-    const MAX_LOOKBACK = 365 * 2;
+    const MAX_LOOKBACK = 365 * 2; // Safety limit
 
-    // Flag to handle the very first day (Today) logic
-    // If Today is scheduled but NOT done: it's not a break yet, just doesn't increase streak.
-    // If Today is scheduled AND DONE: streak starts at 1.
-    // We iterate backwards.
+    const completionSet = new Set(completedDates);
+
+    // Initial check: If today is scheduled and NOT done, we don't count it for streak increment
+    // but strictly, it hasn't BROKEN the streak yet if we look at yesterday.
+    // However, if today IS done, we start counting from 1.
+
+    // Correction: "Streak" usually means "Consecutive executions up to now".
+    // If I did it yesterday (streak 10) and today is pending:
+    // Display: 10 (🔥).
+    // If I do it today: 11 (🔥).
 
     while (daysChecked < MAX_LOOKBACK) {
-        const dateStr = getLocalDateString(currentCheck);
-        const scheduled = isScheduled(currentCheck, frequency);
-        const completed = completedSet.has(dateStr);
+        const dateStr = getLocalDateString(currentCheckDate);
+        const isScheduled = isScheduledForDate(habit, dateStr);
+        const isDone = completionSet.has(dateStr);
 
-        if (scheduled) {
-            if (completed) {
+        if (isScheduled) {
+            if (isDone) {
                 streak++;
             } else {
-                // Not completed
+                // Not done...
                 if (dateStr === todayStr) {
-                    // It's today. If we haven't done it yet, streak is preserved but doesn't increment.
-                    // BUT, if we have a streak from yesterday, we want to return that.
-                    // If we did it today, we already did streak++ above.
-                    // So if we land here, it means Today is NOT done.
-                    // We just continue to yesterday to see if the streak exists there.
+                    // Allowed to be pending for today
                 } else {
-                    // Missed a PAST scheduled day. Streak broken.
+                    // Missed a past scheduled day! Streak ends.
                     break;
                 }
             }
         } else {
-            // Off-day. 
-            // If we have a streak going, we just skip this day.
-            // If we don't have a streak yet (e.g. started checking today, today is off-day),
-            // current streak is 0, continue to yesterday.
+            // Not scheduled (Off day)
+            // Does not increment streak, but does not break it.
+            // Continue looking back.
         }
 
-        // Move to yesterday
-        currentCheck.setDate(currentCheck.getDate() - 1);
+        // Move back 1 day
+        currentCheckDate.setDate(currentCheckDate.getDate() - 1);
         daysChecked++;
     }
 
     return streak;
+};
+
+// Helper
+const dayDiff = (dateStr1, dateStr2) => {
+    const d1 = new Date(dateStr1);
+    const d2 = new Date(dateStr2);
+    // Normalize to noon to avoid DST/midnight shifts affecting diff
+    d1.setHours(12, 0, 0, 0);
+    d2.setHours(12, 0, 0, 0);
+    return Math.round(Math.abs((d1 - d2) / (1000 * 60 * 60 * 24)));
 };
