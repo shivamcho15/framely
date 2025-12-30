@@ -10,10 +10,11 @@ import ColorPicker from '../components/ColorPicker';
 import { getLocalDateString } from '../utils/streak';
 import { COLORS } from '../utils/colors';
 
+
 const HabitDetailScreen = () => {
     const route = useRoute();
     const navigation = useNavigation();
-    const { habits, removeHabit, updateHabit, toggleHabitCompletion, getStreak } = useHabits();
+    const { habits, removeHabit, updateHabit, toggleHabitCompletion, getStreak, getHabitCompletionDates } = useHabits();
     const { habitId } = route.params;
 
     const [isEditing, setIsEditing] = useState(false);
@@ -24,6 +25,9 @@ const HabitDetailScreen = () => {
     const [color, setColor] = useState(COLORS[0]);
 
     const habit = habits.find((h) => h.id === habitId);
+
+    // Get live data
+    const completionDates = habit ? getHabitCompletionDates(habit.id) : [];
 
     useEffect(() => {
         if (habit) {
@@ -73,7 +77,7 @@ const HabitDetailScreen = () => {
     const streak = getStreak(habit);
     const today = new Date();
     const todayStr = getLocalDateString(today);
-    const isCompletedToday = habit.completedDates?.includes(todayStr);
+    const isCompletedToday = completionDates.includes(todayStr);
 
     const handleToggleToday = () => {
         toggleHabitCompletion(habit.id, todayStr);
@@ -171,7 +175,7 @@ const HabitDetailScreen = () => {
                             <Text style={[styles.description, { fontStyle: 'italic', color: '#999' }]}>No description provided</Text>
                         )}
 
-                        <CompletedDaysView completedDates={habit.completedDates} />
+                        <CompletedDaysView completedDates={completionDates} />
                     </View>
                 )}
             </ScrollView>
@@ -200,6 +204,7 @@ const HabitDetailScreen = () => {
         </View>
     );
 };
+
 
 const styles = StyleSheet.create({
     container: {

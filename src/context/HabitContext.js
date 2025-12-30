@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
-import { saveHabits, loadHabits } from '../utils/storage';
+import { saveHabitsToStorage, loadHabitsFromStorage } from '../storage/habitsStorage';
+import { saveCompletionsToStorage, loadCompletionsFromStorage } from '../storage/completionsStorage';
 import { calculateStreak } from '../utils/streak';
 
 const HabitContext = createContext();
@@ -10,33 +11,49 @@ export const useHabits = () => {
 
 export const HabitProvider = ({ children }) => {
     const [habits, setHabits] = useState([]);
+    const [completions, setCompletions] = useState([]);
     const [loading, setLoading] = useState(true);
 
+    // Initial Load
     useEffect(() => {
-        const fetchHabits = async () => {
-            const loadedHabits = await loadHabits();
+        const loadData = async () => {
+            const [loadedHabits, loadedCompletions] = await Promise.all([
+                loadHabitsFromStorage(),
+                loadCompletionsFromStorage()
+            ]);
             setHabits(loadedHabits);
+            setCompletions(loadedCompletions);
             setLoading(false);
         };
-        fetchHabits();
+        loadData();
     }, []);
+
+    // --- Actions ---
 
     const addHabit = async (habitData) => {
         const newHabit = {
             id: Date.now().toString(),
             createdAt: new Date().toISOString(),
-            completedDates: [],
             ...habitData,
+            // Do NOT store completedDates here anymore
         };
         const updatedHabits = [...habits, newHabit];
         setHabits(updatedHabits);
-        await saveHabits(updatedHabits);
+        await saveHabitsToStorage(updatedHabits);
     };
 
     const removeHabit = async (id) => {
         const updatedHabits = habits.filter((habit) => habit.id !== id);
+        // Also remove associated completions to keep data clean
+        const updatedCompletions = completions.filter(c => c.habitId !== id);
+        
         setHabits(updatedHabits);
-        await saveHabits(updatedHabits);
+        setCompletions(updatedCompletions);
+        
+        await Promise.all([
+            saveHabitsToStorage(updatedHabits),
+            saveCompletionsToStorage(updatedCompletions)
+        ]);
     };
 
     const updateHabit = async (id, updates) => {
@@ -44,37 +61,70 @@ export const HabitProvider = ({ children }) => {
             habit.id === id ? { ...habit, ...updates } : habit
         );
         setHabits(updatedHabits);
-        await saveHabits(updatedHabits);
+        await saveHabitsToStorage(updatedHabits);
     };
 
-    const toggleHabitCompletion = async (id, date) => {
-        const updatedHabits = habits.map((habit) => {
-            if (habit.id === id) {
-                const completedDates = habit.completedDates || [];
-                const dateIndex = completedDates.indexOf(date);
-                let newCompletedDates;
+    /**
+     * Toggles completion for a given habit on a specific date string (YYYY-MM-DD).
+     * Now creates/deletes a Completion object.
+     */
+    const toggleHabitCompletion = async (habitId, dateStr) => {
+        // Check if already exists
+        const existingIndex = completions.findIndex(c => c.habitId === habitId && c.date === dateStr);
+        
+        let updatedCompletions;
+        if (existingIndex > -1) {
+            // Remove (Undo)
+            updatedCompletions = [...completions];
+            updatedCompletions.splice(existingIndex, 1);
+        } else {
+            // Add
+            const newCompletion = {
+                id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+                habitId,
+                date: dateStr,
+                createdAt: new Date().toISOString()
+            };
+            updatedCompletions = [...completions, newCompletion];
+        }
 
-                if (dateIndex > -1) {
-                    // Remove if already completed
-                    newCompletedDates = completedDates.filter(d => d !== date);
-                } else {
-                    // Add if not completed
-                    newCompletedDates = [...completedDates, date];
-                }
-                return { ...habit, completedDates: newCompletedDates };
-            }
-            return habit;
-        });
-        setHabits(updatedHabits);
-        await saveHabits(updatedHabits);
+        setCompletions(updatedCompletions);
+        await saveCompletionsToStorage(updatedCompletions);
     };
 
+    // --- Helpers for Consumers ---
+
+    /**
+     * Get streak using normalized data.
+     */
     const getStreak = (habit) => {
-        return calculateStreak(habit);
+        // We pass ALL completions (or filtered ones) to the utility.
+        // The utility `calculateStreak` expects `(habit, completionsArray)`.
+        return calculateStreak(habit, completions);
+    };
+
+    /**
+     * Helper to get simpler arrays for components that just want to know if it's done.
+     * Returns array of date strings for a specific habit.
+     */
+    const getHabitCompletionDates = (habitId) => {
+        return completions
+            .filter(c => c.habitId === habitId)
+            .map(c => c.date);
     };
 
     return (
-        <HabitContext.Provider value={{ habits, loading, addHabit, removeHabit, updateHabit, toggleHabitCompletion, getStreak }}>
+        <HabitContext.Provider value={{ 
+            habits, 
+            completions, 
+            loading, 
+            addHabit, 
+            removeHabit, 
+            updateHabit, 
+            toggleHabitCompletion, 
+            getStreak,
+            getHabitCompletionDates 
+        }}>
             {children}
         </HabitContext.Provider>
     );

@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { useHabits } from '../context/HabitContext';
 
 const MilestoneBadge = ({ streak }) => {
     // Define milestones
