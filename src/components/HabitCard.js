@@ -1,21 +1,30 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { useHabits } from '../context/HabitContext';
 import StreakBadge from './StreakBadge';
+import { getLocalDateString } from '../utils/streak';
 
-const HabitCard = ({ habit, onPress }) => {
+const HabitCard = ({ habit }) => {
+    const navigation = useNavigation();
     const { toggleHabitCompletion, getStreak } = useHabits();
+
+    // Safe check for completedDates
+    // FIX: Use getLocalDateString to ensure we check against the correct LOCAL today
+    const today = new Date();
+    const todayStr = getLocalDateString(today);
+    const isCompletedToday = habit.completedDates && habit.completedDates.includes(todayStr);
+
     const streak = getStreak(habit);
 
-    const today = new Date().toISOString().split('T')[0];
-    const isCompletedToday = habit.completedDates?.includes(today);
-
-    const handleToggle = () => {
-        toggleHabitCompletion(habit.id, today);
-    };
+    // Use habit color or default blue
+    const accentColor = habit.color || '#2196F3';
 
     return (
-        <View style={styles.card}>
+        <TouchableOpacity
+            style={[styles.card, { borderLeftColor: accentColor }]}
+            onPress={() => navigation.navigate('HabitDetail', { habitId: habit.id })}
+        >
             <View style={styles.content}>
                 <View style={styles.header}>
                     <Text style={styles.title}>{habit.title}</Text>
@@ -28,21 +37,17 @@ const HabitCard = ({ habit, onPress }) => {
                 ) : null}
             </View>
 
-            <View style={styles.actions}>
-                <TouchableOpacity
-                    style={[styles.checkButton, isCompletedToday && styles.checkedButton]}
-                    onPress={handleToggle}
-                >
-                    <Text style={[styles.checkText, isCompletedToday && styles.checkedText]}>
-                        {isCompletedToday ? '✓' : '○'}
-                    </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.button} onPress={onPress}>
-                    <Text style={styles.buttonText}>Details</Text>
-                </TouchableOpacity>
-            </View>
-        </View>
+            <TouchableOpacity
+                style={[
+                    styles.checkButton,
+                    isCompletedToday && { backgroundColor: accentColor, borderColor: accentColor },
+                    !isCompletedToday && { borderColor: accentColor }
+                ]}
+                onPress={() => toggleHabitCompletion(habit.id, todayStr)}
+            >
+                {isCompletedToday && <Text style={styles.checkIcon}>✓</Text>}
+            </TouchableOpacity>
+        </TouchableOpacity>
     );
 };
 
@@ -54,12 +59,12 @@ const styles = StyleSheet.create({
         marginBottom: 12,
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        elevation: 2,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
         shadowRadius: 4,
+        elevation: 3,
+        borderLeftWidth: 5,
     },
     content: {
         flex: 1,
@@ -67,57 +72,34 @@ const styles = StyleSheet.create({
     },
     header: {
         flexDirection: 'row',
+        justifyContent: 'space-between',
         alignItems: 'center',
         marginBottom: 4,
-        gap: 8,
     },
     title: {
         fontSize: 18,
-        fontWeight: '600',
+        fontWeight: 'bold',
         color: '#333',
+        flex: 1,
+        marginRight: 8,
     },
     description: {
         fontSize: 14,
         color: '#666',
     },
-    actions: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-    },
     checkButton: {
         width: 40,
         height: 40,
         borderRadius: 20,
-        backgroundColor: '#f0f0f0',
+        borderWidth: 2,
         justifyContent: 'center',
         alignItems: 'center',
-        borderWidth: 1,
-        borderColor: '#e0e0e0',
     },
-    checkedButton: {
-        backgroundColor: '#4CAF50',
-        borderColor: '#4CAF50',
-    },
-    checkText: {
+    checkIcon: {
+        color: '#fff',
         fontSize: 20,
-        color: '#999',
-    },
-    checkedText: {
-        color: '#fff',
         fontWeight: 'bold',
-    },
-    button: {
-        backgroundColor: '#007AFF',
-        paddingVertical: 8,
-        paddingHorizontal: 12,
-        borderRadius: 8,
-    },
-    buttonText: {
-        color: '#fff',
-        fontSize: 14,
-        fontWeight: '500',
-    },
+    }
 });
 
 export default HabitCard;

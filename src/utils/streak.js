@@ -1,4 +1,14 @@
 /**
+ * Helper to get local date string YYYY-MM-DD
+ */
+export const getLocalDateString = (date) => {
+    const d = new Date(date);
+    const offset = d.getTimezoneOffset() * 60000;
+    const localDate = new Date(d.getTime() - offset);
+    return localDate.toISOString().split('T')[0];
+};
+
+/**
  * Checks if a given date is a scheduled day for the habit based on frequency.
  * @param {Date} date - The date to check.
  * @param {Object} frequency - The habit frequency object { type, days }.
@@ -10,9 +20,6 @@ export const isScheduled = (date, frequency) => {
         const dayOfWeek = date.getDay(); // 0 = Sun, 1 = Mon, etc.
         return frequency.days && frequency.days.includes(dayOfWeek);
     }
-    // 'everyOtherDay' is dynamic, treated as always scheduled for this check 
-    // but handled specially in streak calc or handled loosely.
-    // For the loop logic, we might need a different approach for everyOtherDay.
     return true;
 };
 
@@ -24,36 +31,17 @@ export const isScheduled = (date, frequency) => {
 export const calculateStreak = (habit) => {
     const { completedDates, frequency } = habit;
 
-    if (!completedDates || completedDates.length === 0) return 0;
+    // Sort dates descending
+    const sortedDates = completedDates ? [...completedDates].sort((a, b) => new Date(b) - new Date(a)) : [];
 
-    // 1. Sort dates descending
-    const sortedDates = [...completedDates].sort((a, b) => new Date(b) - new Date(a));
-    const latestDateStr = sortedDates[0];
-    const latestDate = new Date(latestDateStr);
-
-    // 2. Normalize Today
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayStr = today.toISOString().split('T')[0];
+    const todayStr = getLocalDateString(today);
 
     // Special logic for 'everyOtherDay'
-    // Constraint: Max gap between completions is 1 day (i.e., difference <= 2 days)
     if (frequency && frequency.type === 'everyOtherDay') {
-        let streak = 0;
+        if (!completedDates || completedDates.length === 0) return 0;
 
-        // Use 'today' as the anchor to start checking? 
-        // Or simple check: If latest completion is too old (> 2 days ago), streak is 0.
-        // If latest is today or yesterday or 2 days ago? 
-        // "Every other day" -> If I did it 2 days ago (Day -2), today I am due.
-        // If I haven't done it yet today, streak survives.
-        // If I did it 3 days ago, streak broken.
-
-        const diffDays = (today - latestDate) / (1000 * 60 * 60 * 24);
-
-        // If the gap from today to last completion is > 2, streak is definitively 0.
-        // Note: Math.floor/round might be needed depending on timezone, 
-        // but text-based ISO dates usually align well if we stick to UTC or consistent local.
-        // Let's rely on date string diffs for safety.
+        const latestDateStr = sortedDates[0];
 
         const dayDiff = (d1, d2) => {
             const t1 = new Date(d1).setHours(0, 0, 0, 0);
@@ -62,15 +50,18 @@ export const calculateStreak = (habit) => {
         };
 
         const gapFromToday = dayDiff(todayStr, latestDateStr);
-        if (gapFromToday > 2) return 0; // Missed the window
+        if (gapFromToday > 2) return 0; // Missed the window (> 1 day skip allowed, so max gap is 2 days? If Completed Mon, Due Wed. Today Thu. Gap 3. 0. Today Wed. Gap 2. OK.)
 
         // Now count backwards
-        streak = 1;
+        let streak = 1;
         for (let i = 0; i < sortedDates.length - 1; i++) {
             const current = sortedDates[i];
             const next = sortedDates[i + 1];
             const gap = dayDiff(current, next);
 
+            // "Every other day" ideal gap is 2 (Mon -> Wed). 
+            // If gap is 1 (Mon -> Tue), that's extra credit, keep streak.
+            // If gap > 2, broken.
             if (gap <= 2) {
                 streak++;
             } else {
@@ -82,24 +73,20 @@ export const calculateStreak = (habit) => {
 
     // Standard Logic (Every Day & Specific Days)
     let streak = 0;
-    let currentCheck = new Date(today); // Start checking from Today
-    let completedSet = new Set(completedDates);
+    // Start checking from Today
+    let currentCheck = new Date();
+    let completedSet = new Set(completedDates || []);
 
-    // Safety break to prevent infinite loops
     let daysChecked = 0;
+    const MAX_LOOKBACK = 365 * 2;
 
-    // We iterate backwards day by day.
-    // Logic: 
-    // 1. Is 'currentCheck' scheduled?
-    //    YES: Must be completed.
-    //         If completed -> streak++. Move to prev day.
-    //         If NOT completed:
-    //             If currentCheck is TODAY -> Grace period (Streak doesn't break, doesn't increment). Move to prev day.
-    //             Else -> Break streak.
-    //    NO: Off-day. Streak continues. Move to prev day.
+    // Flag to handle the very first day (Today) logic
+    // If Today is scheduled but NOT done: it's not a break yet, just doesn't increase streak.
+    // If Today is scheduled AND DONE: streak starts at 1.
+    // We iterate backwards.
 
-    while (daysChecked < 365 * 2) { // Max 2 years lookback
-        const dateStr = currentCheck.toISOString().split('T')[0];
+    while (daysChecked < MAX_LOOKBACK) {
+        const dateStr = getLocalDateString(currentCheck);
         const scheduled = isScheduled(currentCheck, frequency);
         const completed = completedSet.has(dateStr);
 
@@ -109,23 +96,26 @@ export const calculateStreak = (habit) => {
             } else {
                 // Not completed
                 if (dateStr === todayStr) {
-                    // Allowed to be incomplete today
+                    // It's today. If we haven't done it yet, streak is preserved but doesn't increment.
+                    // BUT, if we have a streak from yesterday, we want to return that.
+                    // If we did it today, we already did streak++ above.
+                    // So if we land here, it means Today is NOT done.
+                    // We just continue to yesterday to see if the streak exists there.
                 } else {
-                    // Missed a past scheduled day
+                    // Missed a PAST scheduled day. Streak broken.
                     break;
                 }
             }
         } else {
-            // Off-day, just continue
+            // Off-day. 
+            // If we have a streak going, we just skip this day.
+            // If we don't have a streak yet (e.g. started checking today, today is off-day),
+            // current streak is 0, continue to yesterday.
         }
 
         // Move to yesterday
         currentCheck.setDate(currentCheck.getDate() - 1);
         daysChecked++;
-
-        // Optimization: If we run out of completed dates to check against? 
-        // This loop goes until break.
-        // If streak exceeds accumulated completedDates count? No, because off-days don't increment streak.
     }
 
     return streak;

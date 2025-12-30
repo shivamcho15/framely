@@ -2,12 +2,15 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, Modal, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import FrequencySelector from './FrequencySelector';
 import RemindersInput from './RemindersInput';
+import ColorPicker from './ColorPicker';
+import { COLORS } from '../utils/colors';
 
 const AddHabitModal = ({ visible, onClose, onAdd }) => {
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [frequency, setFrequency] = useState({ type: 'everyday', days: [] });
     const [reminders, setReminders] = useState([]);
+    const [color, setColor] = useState(COLORS[0]);
 
     const handleSave = () => {
         if (!title.trim()) {
@@ -18,23 +21,25 @@ const AddHabitModal = ({ visible, onClose, onAdd }) => {
             title,
             description,
             frequency,
-            reminders
+            reminders,
+            color
         });
         // Reset form
-        setTitle('');
-        setDescription('');
-        setFrequency({ type: 'everyday', days: [] });
-        setReminders([]);
+        resetForm();
         onClose();
     };
 
     const handleCancel = () => {
-        // Reset form
+        resetForm();
+        onClose();
+    };
+
+    const resetForm = () => {
         setTitle('');
         setDescription('');
         setFrequency({ type: 'everyday', days: [] });
         setReminders([]);
-        onClose();
+        setColor(COLORS[0]);
     };
 
     return (
@@ -64,8 +69,20 @@ const AddHabitModal = ({ visible, onClose, onAdd }) => {
                             numberOfLines={3}
                         />
 
-                        <FrequencySelector frequency={frequency} onChange={setFrequency} />
-                        <RemindersInput reminders={reminders} onChange={setReminders} />
+                        <View style={styles.section}>
+                            <Text style={styles.label}>Frequency</Text>
+                            <FrequencySelector frequency={frequency} onChange={setFrequency} />
+                        </View>
+
+                        <View style={styles.section}>
+                            <Text style={styles.label}>Reminders</Text>
+                            <RemindersInput reminders={reminders} onChange={setReminders} />
+                        </View>
+
+                        <View style={styles.section}>
+                            <Text style={styles.label}>Color</Text>
+                            <ColorPicker selectedColor={color} onSelect={setColor} />
+                        </View>
 
                         <View style={styles.buttons}>
                             <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={handleCancel}>
@@ -93,7 +110,7 @@ const styles = StyleSheet.create({
         borderTopLeftRadius: 20,
         borderTopRightRadius: 20,
         padding: 24,
-        height: '90%', // Increased height for more fields
+        height: '95%',
     },
     header: {
         fontSize: 24,
@@ -111,13 +128,22 @@ const styles = StyleSheet.create({
         backgroundColor: '#f9f9f9',
     },
     textArea: {
-        height: 100,
+        height: 80,
         textAlignVertical: 'top',
+    },
+    section: {
+        marginBottom: 16,
+    },
+    label: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#666',
+        marginBottom: 8,
     },
     buttons: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        marginTop: 20,
+        marginTop: 10,
         marginBottom: 40,
     },
     button: {

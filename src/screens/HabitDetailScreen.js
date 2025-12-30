@@ -6,6 +6,9 @@ import StreakBadge from '../components/StreakBadge';
 import CompletedDaysView from '../components/CompletedDaysView';
 import FrequencySelector from '../components/FrequencySelector';
 import RemindersInput from '../components/RemindersInput';
+import ColorPicker from '../components/ColorPicker';
+import { getLocalDateString } from '../utils/streak';
+import { COLORS } from '../utils/colors';
 
 const HabitDetailScreen = () => {
     const route = useRoute();
@@ -18,6 +21,7 @@ const HabitDetailScreen = () => {
     const [description, setDescription] = useState('');
     const [frequency, setFrequency] = useState({ type: 'everyday', days: [] });
     const [reminders, setReminders] = useState([]);
+    const [color, setColor] = useState(COLORS[0]);
 
     const habit = habits.find((h) => h.id === habitId);
 
@@ -27,6 +31,7 @@ const HabitDetailScreen = () => {
             setDescription(habit.description || '');
             setFrequency(habit.frequency || { type: 'everyday', days: [] });
             setReminders(habit.reminders || []);
+            setColor(habit.color || COLORS[0]);
         }
     }, [habit]);
 
@@ -61,16 +66,17 @@ const HabitDetailScreen = () => {
             Alert.alert('Error', 'Title cannot be empty');
             return;
         }
-        updateHabit(habitId, { title, description, frequency, reminders });
+        updateHabit(habitId, { title, description, frequency, reminders, color });
         setIsEditing(false);
     };
 
     const streak = getStreak(habit);
-    const today = new Date().toISOString().split('T')[0];
-    const isCompletedToday = habit.completedDates?.includes(today);
+    const today = new Date();
+    const todayStr = getLocalDateString(today);
+    const isCompletedToday = habit.completedDates?.includes(todayStr);
 
     const handleToggleToday = () => {
-        toggleHabitCompletion(habit.id, today);
+        toggleHabitCompletion(habit.id, todayStr);
     };
 
     const renderFrequencyText = () => {
@@ -90,8 +96,13 @@ const HabitDetailScreen = () => {
         return r.join(', ');
     };
 
+    const accentColor = habit.color || COLORS[0];
+
     return (
         <View style={styles.container}>
+            {/* Accent Header Line */}
+            <View style={{ height: 6, backgroundColor: accentColor }} />
+
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 {isEditing ? (
                     <View>
@@ -110,22 +121,35 @@ const HabitDetailScreen = () => {
                             multiline
                         />
 
+                        <Text style={styles.label}>Frequency</Text>
                         <FrequencySelector frequency={frequency} onChange={setFrequency} />
+
+                        <Text style={styles.label}>Reminders</Text>
                         <RemindersInput reminders={reminders} onChange={setReminders} />
+
+                        <Text style={styles.label}>Color</Text>
+                        <ColorPicker selectedColor={color} onSelect={setColor} />
+
                         <View style={{ height: 20 }} />
                     </View>
                 ) : (
                     <View>
                         <View style={styles.header}>
-                            <Text style={styles.title}>{habit.title}</Text>
+                            <Text style={[styles.title, { color: accentColor }]}>{habit.title}</Text>
                             <StreakBadge streak={streak} />
                         </View>
 
                         <TouchableOpacity
-                            style={[styles.mainCheckButton, isCompletedToday && styles.mainCheckedButton]}
+                            style={[
+                                styles.mainCheckButton,
+                                isCompletedToday && { backgroundColor: accentColor + '20', borderColor: accentColor }
+                            ]}
                             onPress={handleToggleToday}
                         >
-                            <Text style={[styles.mainCheckText, isCompletedToday && styles.mainCheckedText]}>
+                            <Text style={[
+                                styles.mainCheckText,
+                                isCompletedToday && { color: accentColor, fontWeight: 'bold' }
+                            ]}>
                                 {isCompletedToday ? "Completed Today!" : "Mark as Done Today"}
                             </Text>
                         </TouchableOpacity>
@@ -154,12 +178,12 @@ const HabitDetailScreen = () => {
 
             <View style={styles.footer}>
                 {isEditing ? (
-                    <TouchableOpacity style={[styles.button, styles.saveButton]} onPress={handleSave}>
+                    <TouchableOpacity style={[styles.button, { backgroundColor: accentColor }]} onPress={handleSave}>
                         <Text style={styles.buttonText}>Save Changes</Text>
                     </TouchableOpacity>
                 ) : (
                     <TouchableOpacity style={[styles.button, styles.editButton]} onPress={() => setIsEditing(true)}>
-                        <Text style={[styles.buttonText, { color: '#007AFF' }]}>Edit Habit</Text>
+                        <Text style={[styles.buttonText, { color: accentColor }]}>Edit Habit</Text>
                     </TouchableOpacity>
                 )}
 
@@ -238,17 +262,10 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#eee',
     },
-    mainCheckedButton: {
-        backgroundColor: '#E8F5E9',
-        borderColor: '#4CAF50',
-    },
     mainCheckText: {
         fontSize: 18,
         fontWeight: '600',
         color: '#666',
-    },
-    mainCheckedText: {
-        color: '#2E7D32',
     },
     infoSection: {
         flexDirection: 'row',
@@ -276,13 +293,10 @@ const styles = StyleSheet.create({
         marginBottom: 12,
     },
     editButton: {
-        backgroundColor: '#f0f8ff',
+        backgroundColor: '#f9f9f9',
     },
     deleteButton: {
         backgroundColor: '#fff0f0',
-    },
-    saveButton: {
-        backgroundColor: '#007AFF',
     },
     cancelButton: {
         backgroundColor: '#eee',
