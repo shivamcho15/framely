@@ -50,3 +50,37 @@ export const getPastDates = (daysCount) => {
     // Return chronological order
     return dates.reverse();
 };
+
+/**
+ * Returns current month in YYYY-MM format.
+ * @returns {string} YYYY-MM
+ */
+export const getCurrentMonthString = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    return `${year}-${month}`;
+};
+
+/**
+ * Adds days to a date string and returns new date string.
+ * @param {string} dateStr YYYY-MM-DD
+ * @param {number} days Number of days to add (can be negative)
+ * @returns {string} YYYY-MM-DD
+ */
+export const addDays = (dateStr, days) => {
+    const date = new Date(dateStr + 'T12:00:00'); // Noon to avoid timezone issues
+    date.setDate(date.getDate() + days);
+    return getLocalDateString(date);
+};
+
+/**
+ * Returns the first day of the current month in YYYY-MM-DD format.
+ * @returns {string} YYYY-MM-DD
+ */
+export const getStartOfCurrentMonth = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    return `${year}-${month}-01`;
+};

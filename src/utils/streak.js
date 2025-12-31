@@ -5,8 +5,9 @@ import { isScheduledForDate } from './schedule';
  * Calculates current streak based on normalized completions.
  * @param {Object} habit 
  * @param {Array<Object>} completions Array of { date: string, ... } objects
+ * @param {Object} covers { coversRemaining, coveredDates }
  */
-export const calculateStreak = (habit, completions) => {
+export const calculateStreak = (habit, completions, covers = { coveredDates: [] }) => {
     // 1. Filter completions for this habit
     // (Assuming caller passes filtered list, but safe to filter again if generic)
     const habitCompletions = completions.filter(c => c.habitId === habit.id);
@@ -20,16 +21,37 @@ export const calculateStreak = (habit, completions) => {
 
     // 3. Handle 'everyOtherDay' logic
     if (habit.frequency.type === 'everyOtherDay') {
-        const latestDate = completedDates[0];
+        // Filter to only include completions on scheduled days
+        const scheduledCompletedDates = completedDates.filter(dateStr =>
+            isScheduledForDate(habit, dateStr)
+        );
+
+        if (scheduledCompletedDates.length === 0) return 0;
+
+        const latestDate = scheduledCompletedDates[0];
         const daysSinceLast = dayDiff(todayStr, latestDate);
 
-        // If > 2 days since last completion, streak is broken. (Max gap 1 day allowed)
-        if (daysSinceLast > 2) return 0;
+        // If > 2 days since last completion, check if covered
+        if (daysSinceLast > 2) {
+            // Check if any day in between is covered
+            const coveredSet = new Set(covers.coveredDates || []);
+            let hasCover = false;
+            for (let i = 1; i < daysSinceLast; i++) {
+                const checkDate = new Date(latestDate + 'T12:00:00');
+                checkDate.setDate(checkDate.getDate() + i);
+                const checkDateStr = checkDate.toISOString().split('T')[0];
+                if (coveredSet.has(checkDateStr)) {
+                    hasCover = true;
+                    break;
+                }
+            }
+            if (!hasCover) return 0;
+        }
 
         let streak = 1;
-        for (let i = 0; i < completedDates.length - 1; i++) {
-            const current = completedDates[i];
-            const next = completedDates[i + 1]; // older
+        for (let i = 0; i < scheduledCompletedDates.length - 1; i++) {
+            const current = scheduledCompletedDates[i];
+            const next = scheduledCompletedDates[i + 1]; // older
             const gap = dayDiff(current, next);
 
             // Allow gap of 1 or 2 (1 = consecutive, 2 = skipped one day)
@@ -64,6 +86,7 @@ export const calculateStreak = (habit, completions) => {
     const MAX_LOOKBACK = 365 * 2; // Safety limit
 
     const completionSet = new Set(completedDates);
+    const coveredSet = new Set(covers.coveredDates || []);
 
     // Initial check: If today is scheduled and NOT done, we don't count it for streak increment
     // but strictly, it hasn't BROKEN the streak yet if we look at yesterday.
@@ -78,12 +101,16 @@ export const calculateStreak = (habit, completions) => {
         const dateStr = getLocalDateString(currentCheckDate);
         const isScheduled = isScheduledForDate(habit, dateStr);
         const isDone = completionSet.has(dateStr);
+        const isCovered = coveredSet.has(dateStr);
 
         if (isScheduled) {
             if (isDone) {
                 streak++;
+            } else if (isCovered) {
+                // Covered day - doesn't increment streak but doesn't break it
+                // Continue looking back
             } else {
-                // Not done...
+                // Not done and not covered...
                 if (dateStr === todayStr) {
                     // Allowed to be pending for today
                 } else {
@@ -92,7 +119,7 @@ export const calculateStreak = (habit, completions) => {
                 }
             }
         } else {
-            // Not scheduled (Off day)
+            // Not scheduled (Off day or paused)
             // Does not increment streak, but does not break it.
             // Continue looking back.
         }

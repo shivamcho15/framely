@@ -7,7 +7,7 @@ import { useNavigation } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 
 const HomeScreen = () => {
-    const { habits, addHabit } = useHabits();
+    const { habits, addHabit, covers } = useHabits();
     const [modalVisible, setModalVisible] = useState(false);
     const navigation = useNavigation();
 
@@ -24,6 +24,10 @@ const HomeScreen = () => {
             <StatusBar style="auto" />
             <View style={styles.header}>
                 <Text style={styles.title}>My Habits</Text>
+                <View style={styles.coversContainer}>
+                    <Text style={styles.coversLabel}>Covers remaining:</Text>
+                    <Text style={styles.coversCount}>{covers?.coversRemaining ?? 2}</Text>
+                </View>
             </View>
 
             <FlatList
@@ -70,6 +74,21 @@ const styles = StyleSheet.create({
         fontSize: 32,
         fontWeight: 'bold',
         color: '#333',
+    },
+    coversContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 8,
+    },
+    coversLabel: {
+        fontSize: 14,
+        color: '#666',
+        marginRight: 6,
+    },
+    coversCount: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#007AFF',
     },
     list: {
         padding: 20,

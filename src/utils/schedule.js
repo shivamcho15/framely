@@ -1,12 +1,28 @@
 import { getLocalDateString } from './dates';
 
 /**
+ * Checks if a habit is paused on a specific date.
+ * @param {Object} habit 
+ * @param {string} dateStr YYYY-MM-DD
+ * @returns {boolean}
+ */
+export const isHabitPaused = (habit, dateStr) => {
+    if (!habit.pauseStart || !habit.pauseEnd) return false;
+    return dateStr >= habit.pauseStart && dateStr <= habit.pauseEnd;
+};
+
+/**
  * Checks if a habit is scheduled for a specific date string.
  * @param {Object} habit 
  * @param {string} dateStr YYYY-MM-DD
  * @returns {boolean}
  */
 export const isScheduledForDate = (habit, dateStr) => {
+    // Check pause first - paused days are never scheduled
+    if (isHabitPaused(habit, dateStr)) {
+        return false;
+    }
+
     const { frequency } = habit;
     const date = new Date(dateStr);
     // Correct for timezone parsing issue: "YYYY-MM-DD" fits UTC midnight.

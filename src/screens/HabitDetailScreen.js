@@ -7,6 +7,7 @@ import CompletedDaysView from '../components/CompletedDaysView';
 import FrequencySelector from '../components/FrequencySelector';
 import RemindersInput from '../components/RemindersInput';
 import ColorPicker from '../components/ColorPicker';
+import PauseModal from '../components/PauseModal';
 import { getLocalDateString } from '../utils/dates';
 import { COLORS } from '../utils/colors';
 
@@ -14,7 +15,7 @@ import { COLORS } from '../utils/colors';
 const HabitDetailScreen = () => {
     const route = useRoute();
     const navigation = useNavigation();
-    const { habits, removeHabit, updateHabit, toggleHabitCompletion, getStreak, getHabitCompletionDates } = useHabits();
+    const { habits, removeHabit, updateHabit, toggleHabitCompletion, pauseHabit, resumeHabit, getStreak, getHabitCompletionDates, covers } = useHabits();
     const { habitId } = route.params;
 
     const [isEditing, setIsEditing] = useState(false);
@@ -23,6 +24,7 @@ const HabitDetailScreen = () => {
     const [frequency, setFrequency] = useState({ type: 'everyday', days: [] });
     const [reminders, setReminders] = useState([]);
     const [color, setColor] = useState(COLORS[0]);
+    const [showPauseModal, setShowPauseModal] = useState(false);
 
     const habit = habits.find((h) => h.id === habitId);
 
@@ -100,6 +102,36 @@ const HabitDetailScreen = () => {
         return r.join(', ');
     };
 
+    const handlePauseConfirm = (startDate, endDate) => {
+        // Check if already paused
+        if (habit.pauseStart && habit.pauseEnd) {
+            Alert.alert(
+                'Replace Pause?',
+                'This habit is already paused. Do you want to replace the existing pause?',
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                        text: 'Replace',
+                        onPress: () => {
+                            pauseHabit(habitId, startDate, endDate);
+                            setShowPauseModal(false);
+                        }
+                    }
+                ]
+            );
+        } else {
+            pauseHabit(habitId, startDate, endDate);
+            setShowPauseModal(false);
+        }
+    };
+
+    const handleResume = () => {
+        resumeHabit(habitId);
+    };
+
+    const isPaused = habit.pauseStart && habit.pauseEnd;
+    const pauseEndDate = isPaused ? new Date(habit.pauseEnd).toLocaleDateString() : '';
+
     const accentColor = habit.color || COLORS[0];
 
     return (
@@ -173,10 +205,38 @@ const HabitDetailScreen = () => {
                             <Text style={[styles.description, { fontStyle: 'italic', color: '#999' }]}>No description provided</Text>
                         )}
 
-                        <CompletedDaysView completedDates={completionDates} />
+                        {/* Pause Section */}
+                        <View style={styles.pauseSection}>
+                            {isPaused && (
+                                <View style={styles.pauseBadge}>
+                                    <Text style={styles.pauseBadgeText}>Paused until {pauseEndDate}</Text>
+                                </View>
+                            )}
+                            <TouchableOpacity
+                                style={[styles.pauseButton, isPaused && styles.resumeButton]}
+                                onPress={isPaused ? handleResume : () => setShowPauseModal(true)}
+                            >
+                                <Text style={[styles.pauseButtonText, isPaused && styles.resumeButtonText]}>
+                                    {isPaused ? 'Resume Habit' : 'Pause Habit'}
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        <CompletedDaysView
+                            completedDates={completionDates}
+                            coveredDates={covers.coveredDates || []}
+                            habit={habit}
+                        />
                     </View>
                 )}
             </ScrollView>
+
+            <PauseModal
+                visible={showPauseModal}
+                onClose={() => setShowPauseModal(false)}
+                onConfirm={handlePauseConfirm}
+                habitTitle={habit.title}
+            />
 
             <View style={styles.footer}>
                 {isEditing ? (
@@ -308,7 +368,45 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '600',
         color: '#fff',
-    }
+    },
+    pauseSection: {
+        marginTop: 20,
+        marginBottom: 20,
+    },
+    pauseBadge: {
+        backgroundColor: '#FFF3CD',
+        padding: 12,
+        borderRadius: 8,
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: '#FFE69C',
+    },
+    pauseBadgeText: {
+        color: '#856404',
+        fontSize: 14,
+        fontWeight: '600',
+        textAlign: 'center',
+    },
+    pauseButton: {
+        backgroundColor: '#f9f9f9',
+        padding: 14,
+        borderRadius: 8,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#ddd',
+    },
+    pauseButtonText: {
+        color: '#666',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    resumeButton: {
+        backgroundColor: '#E8F5E9',
+        borderColor: '#81C784',
+    },
+    resumeButtonText: {
+        color: '#2E7D32',
+    },
 });
 
 export default HabitDetailScreen;
