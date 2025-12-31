@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, FlatList, TouchableOpacity, Text, SafeAreaView } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, StyleSheet, SectionList, TouchableOpacity, Text, SafeAreaView } from 'react-native';
 import { useHabits } from '../context/HabitContext';
 import HabitCard from '../components/HabitCard';
 import AddHabitModal from '../components/AddHabitModal';
 import { useNavigation } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
+import { getTodayDateString, addDays } from '../utils/dates';
+import { isScheduledForDate, isHabitPaused } from '../utils/schedule';
 
 const HomeScreen = () => {
     const { habits, addHabit, covers } = useHabits();
@@ -19,6 +21,69 @@ const HomeScreen = () => {
         navigation.navigate('HabitDetail', { habitId: habit.id });
     };
 
+    // Categorize and sort habits into sections
+    const sections = useMemo(() => {
+        const today = getTodayDateString();
+        const tomorrow = addDays(today, 1);
+
+        const todayHabits = [];
+        const tomorrowHabits = [];
+        const pausedHabits = [];
+
+        habits.forEach(habit => {
+            // Check if paused first (priority)
+            if (isHabitPaused(habit, today)) {
+                pausedHabits.push(habit);
+            } else if (isScheduledForDate(habit, today)) {
+                todayHabits.push(habit);
+            } else if (isScheduledForDate(habit, tomorrow)) {
+                tomorrowHabits.push(habit);
+            }
+        });
+
+        // Sort alphabetically by title
+        const sortByTitle = (a, b) => a.title.localeCompare(b.title);
+        todayHabits.sort(sortByTitle);
+        tomorrowHabits.sort(sortByTitle);
+        pausedHabits.sort(sortByTitle);
+
+        // Build sections array (only include non-empty sections)
+        const result = [];
+        if (todayHabits.length > 0) {
+            result.push({ title: 'Today', data: todayHabits });
+        }
+        if (tomorrowHabits.length > 0) {
+            result.push({ title: 'Tomorrow', data: tomorrowHabits });
+        }
+        if (pausedHabits.length > 0) {
+            result.push({ title: 'Paused', data: pausedHabits });
+        }
+
+        return result;
+    }, [habits]);
+
+    const renderSectionHeader = ({ section: { title } }) => (
+        <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>{title}</Text>
+        </View>
+    );
+
+    const renderHabit = ({ item, section }) => {
+        const isPaused = section.title === 'Paused';
+        return (
+            <View style={isPaused && styles.pausedHabitContainer}>
+                <HabitCard habit={item} onPress={() => openDetail(item)} />
+                {isPaused && (
+                    <View style={styles.pausedBadge}>
+                        <Text style={styles.pausedBadgeText}>
+                            Paused until {new Date(item.pauseEnd).toLocaleDateString()}
+                        </Text>
+                    </View>
+                )}
+            </View>
+        );
+    };
+
     return (
         <SafeAreaView style={styles.container}>
             <StatusBar style="auto" />
@@ -30,18 +95,18 @@ const HomeScreen = () => {
                 </View>
             </View>
 
-            <FlatList
-                data={habits}
+            <SectionList
+                sections={sections}
                 keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
-                    <HabitCard habit={item} onPress={() => openDetail(item)} />
-                )}
+                renderItem={renderHabit}
+                renderSectionHeader={renderSectionHeader}
                 contentContainerStyle={styles.list}
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
                         <Text style={styles.emptyText}>No habits yet. Start by adding one!</Text>
                     </View>
                 }
+                stickySectionHeadersEnabled={false}
             />
 
             <TouchableOpacity
@@ -90,9 +155,42 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: '#007AFF',
     },
+    sectionHeader: {
+        backgroundColor: '#f5f5f5',
+        paddingVertical: 8,
+        paddingHorizontal: 20,
+        marginTop: 12,
+    },
+    sectionTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#333',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
     list: {
-        padding: 20,
+        paddingHorizontal: 20,
         paddingBottom: 100,
+    },
+    pausedHabitContainer: {
+        opacity: 0.6,
+    },
+    pausedBadge: {
+        backgroundColor: '#FFF3CD',
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        borderRadius: 6,
+        marginTop: -8,
+        marginBottom: 12,
+        marginHorizontal: 4,
+        borderWidth: 1,
+        borderColor: '#FFE69C',
+    },
+    pausedBadgeText: {
+        color: '#856404',
+        fontSize: 12,
+        fontWeight: '600',
+        textAlign: 'center',
     },
     fab: {
         position: 'absolute',
