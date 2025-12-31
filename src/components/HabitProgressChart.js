@@ -42,9 +42,16 @@ const HabitProgressChart = ({ habit, completionDates }) => {
         const isPast = dateStr < todayStr;
         const isToday = dateStr === todayStr;
 
+        // Check if habit existed on this date
+        const habitCreatedDate = habit.createdAt ? habit.createdAt.split('T')[0] : null;
+        const beforeHabitCreated = habitCreatedDate && dateStr < habitCreatedDate;
+
         let backgroundColor = '#f0f0f0'; // Default Gray (Not Scheduled / Future)
 
-        if (scheduled) {
+        // If before habit was created, always show gray
+        if (beforeHabitCreated) {
+            backgroundColor = '#f0f0f0';
+        } else if (scheduled) {
             if (completed) {
                 backgroundColor = '#4CAF50'; // Done (Accent Color)
             } else {

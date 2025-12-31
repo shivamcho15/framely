@@ -34,6 +34,14 @@ export const evaluateMissedDays = (habits, completions, covers) => {
         let anyHabitMissed = false;
 
         for (const habit of habits) {
+            // Skip if habit didn't exist on this date
+            if (habit.createdAt) {
+                const habitCreatedDate = habit.createdAt.split('T')[0]; // Get YYYY-MM-DD
+                if (currentDate < habitCreatedDate) {
+                    continue; // Habit didn't exist yet
+                }
+            }
+
             const isScheduled = isScheduledForDate(habit, currentDate);
             const isCompleted = completionSet.has(currentDate);
             const isPaused = isHabitPaused(habit, currentDate);

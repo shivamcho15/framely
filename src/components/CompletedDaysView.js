@@ -5,7 +5,13 @@ import { getPastDates } from '../utils/dates';
 
 const CompletedDaysView = ({ completedDates, coveredDates = [], habit }) => {
     // Get last 30 days for visualization
-    const dates = getPastDates(30);
+    const allDates = getPastDates(30);
+
+    // Filter to only show dates after habit was created
+    const habitCreatedDate = habit?.createdAt ? habit.createdAt.split('T')[0] : null;
+    const dates = habitCreatedDate
+        ? allDates.filter(d => d >= habitCreatedDate)
+        : allDates;
 
     const completedSet = new Set(completedDates || []);
     const coveredSet = new Set(coveredDates || []);
