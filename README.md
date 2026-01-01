@@ -6,15 +6,17 @@
 
 <h2>Features</h2>
 <ul>
+  <h4>Current Features</h4>
   <li>Unlimited Habits</li>
   <li>Color Coding</li>
   <li>Visualizations</li>
-  <li>Push Notification Reminders</li>
   <li>Unique Frequency Schedules</li>
   <li>Streaks</li>
+  <li>Pauses & Covers for times when life gets in the way</li>
+  <h4>Todo Features </h4>
+  <li>Push Notification Reminders</li>
   <li>Photo Completion & Viewing</li>
   <li>Periodic Compilation Montages</li>
-  <li>Pauses & Covers for times when life gets in the way</li>
 </ul>
 
 <h2>Notes</h2>
